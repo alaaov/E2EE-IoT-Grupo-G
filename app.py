@@ -1,4 +1,5 @@
 import os
+import paho.mqtt.client as mqtt 
 
 if __name__ == '__main__':
     host = os.getenv("MQTT_BROKER_URL")
