@@ -1,38 +1,50 @@
 import os
-import threading
+from flask import Flask, render_template
+from flask_socketio import SocketIO
 from argparse import ArgumentParser
-
 import paho.mqtt.client as mqtt
 
-from flask_socketio import SocketIO
-from flask import app
-from flask.cli import load_dotenv
-
 parser = ArgumentParser()
-parser.add_argument("-t", "--topics", dest="topics", nargs="+",
-                    required=True, help="the topics that you want to subscribe to")
-
-
+parser.add_argument("-t", "--topics", dest="topics", nargs="+", required=True,
+                    help="the topics that you want to subscribe to")
 args = parser.parse_args()
 
-load_dotenv()
+app = Flask(__name__)
 socketio = SocketIO(app)
-def config_Platform():
+
+subscribed_topics = []  # Lista para almacenar los temas suscritos
+
+
+def on_message(client, userdata, message):
+    print(f"Received message: {message.payload.decode()} on topic {message.topic}")
+
+
+def config_Platform(client):
     print("Subscribing to main topics")
     for topic in args.topics:
-            t = topic
-            if topic.lower() == "all":
-                t = "*"
-            client.subscribe(f"security/{t}/*")
+        t = topic
+        if topic.lower() == "all":
+            t = "*"
+        client.subscribe(f"security/{t}/*")
+        client.subscribe(f"{t}/*")
+        client.subscribe(f"{t}/")
+        client.subscribe(f"{t}")
+        subscribed_topics.append(f"security/{t}/*")  # Agregar a la lista de temas suscritos
     client.subscribe("newDevice/*")
 
-def connect_brocker(client, userdata, flags, rc):
+    subscribed_topics.append("newDevice/*")  # Agregar a la lista de temas suscritos
+    # Establecer el manejador de mensajes
+    client.on_message = on_message
+
+
+def connect_broker(client, userdata, flags, rc):
     if rc == 0:
         print("Running on http://localhost:5000")
         print('Connected successfully')
-        config_Platform()
+        config_Platform(client)
     else:
         print('Bad connection. Code:', rc)
+
 
 if __name__ == '__main__':
     host = os.getenv("MQTT_BROKER_URL")
@@ -40,9 +52,8 @@ if __name__ == '__main__':
     username = os.getenv("MQTT_USERNAME")
     password = os.getenv("MQTT_PASSWORD")
     client = mqtt.Client(client_id="Platform")
-    client.username_pw_set(username, password)
-    client.on_connect = connect_brocker
-    client.connect(host, port, 60)
-    client.on_message = config_Platform
+    client.username_pw_set("micalancer669", "tjeSCoiINVm89VAI")
+    client.on_connect = connect_broker
+    client.connect("micalancer669.cloud.shiftr.io", port, 60)
     client.loop_start()
     socketio.run(app, host='localhost', port=5000)
